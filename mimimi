@@ -1,0 +1,461 @@
+import datetime
+import os
+
+class Kamar:
+    def __init__(self):
+        self.tipe_kamar_list = [
+            "Standard Room",
+            "Deluxe Room (single bed)",
+            "Family Room (2 tempat tidur)",
+            "Family Room (3 tempat tidur)"
+        ]
+
+        self._fasilitas_kamar = {
+            "Standard Room": ["Kasur nyaman ukuran Queen", "AC & Wi-Fi gratis", "TV LED 32 inci", "Kamar mandi dengan shower"],
+            "Deluxe Room (single bed)": ["Kasur ukuran King", "AC & Wi-Fi", "TV LED 42 inci dengan layanan streaming", "Kamar mandi dengan bathtub", "Balkon"],
+            "Family Room (2 tempat tidur)": ["2 Kasur ukuran Queen", "AC & Wi-Fi", "TV LED 50 inci dengan layanan streaming", "Kamar mandi luas dengan bathtub", "Ruang tamu kecil", "Sarapan gratis"],
+            "Family Room (3 tempat tidur)": ["2 Kasur ukuran Queen", "AC & Wi-Fi", "TV LED 50 inci dengan layanan streaming", "Kamar mandi luas dengan bathtub", "Ruang tamu kecil", "Sarapan gratis"]
+        }
+
+        self._nomor_kamar = {
+            "Standard Room": ["1A", "2A", "3A", "4A", "5A"],
+            "Deluxe Room (single bed)": ["2B", "2C", "3D"],
+            "Family Room (2 tempat tidur)": ["3A", "3B", "3C"],
+            "Family Room (3 tempat tidur)": ["4A", "4B", "4C"]
+        }
+
+        self._harga_kamar = {
+            "Standard Room": 150000,
+            "Deluxe Room (single bed)": 225000,
+            "Family Room (2 tempat tidur)": 345000,
+            "Family Room (3 tempat tidur)": 410000
+        }
+
+    def get_info_kamar(self, tipe_kamar):
+        """Method dasar untuk di-override oleh child class"""
+        return {
+            "tipe": tipe_kamar,
+            "harga": self._harga_kamar[tipe_kamar],
+            "fasilitas": self._fasilitas_kamar[tipe_kamar]
+        }
+
+    def tampil_info_kamar(self):
+        print("Tipe Kamar yang Tersedia:")
+        for i, tipe in enumerate(self.tipe_kamar_list, start=1):
+            info = self.get_info_kamar(tipe)
+            print("{}. {} - Rp {:,}".format(i, tipe, info["harga"]))
+            for fasilitas in info["fasilitas"]:
+                print("   - {}".format(fasilitas))
+
+    def kamar_terisi(self):
+        """Mendapatkan set kamar yang sedang terisi (belum checkout)"""
+        terisi = set()
+        try:
+            with open("data_checkin.txt", "r") as file:
+                for line in file:
+                    data = line.strip().split(" | ")
+                    if len(data) >= 14: 
+                        status_checkout = data[13] if len(data) > 13 else "BELUM"
+                        
+                        if status_checkout == "BELUM":
+                            kamar_data = data[14:]
+                            for i in range(1, len(kamar_data), 3):  
+                                if i < len(kamar_data):
+                                    terisi.add(kamar_data[i])
+        except FileNotFoundError:
+            pass  
+        except Exception as e:
+            print("Error saat membaca data kamar: {}".format(e))
+        return terisi
+
+    def tampil_status_kamar(self, tipe_kamar_dipilih):
+        kamar_terisi = self.kamar_terisi()
+
+        print("\nStatus kamar (TERISI / KOSONG):")
+        for tipe in tipe_kamar_dipilih:
+            print("\n{}:".format(tipe))
+            for kamar in self._nomor_kamar[tipe]:
+                status = "TERISI" if kamar in kamar_terisi else "KOSONG"
+                print("Kamar {}: {}".format(kamar, status))
+
+        kamar_tersedia_per_tipe = {}
+        for tipe in tipe_kamar_dipilih:
+            kamar_tersedia_per_tipe[tipe] = [k for k in self._nomor_kamar[tipe] if k not in kamar_terisi]
+        return kamar_tersedia_per_tipe
+
+    def tampil_tabel_status_kamar(self):
+        """Menampilkan status seluruh kamar dalam bentuk tabel"""
+        kamar_terisi = self.kamar_terisi()
+        
+        max_kamar = max(len(kamar) for kamar in self._nomor_kamar.values())
+        
+        print("\n================ STATUS KAMAR PENGINAPAN CHOCO ================")
+        header = "| Tipe Kamar".ljust(30) + " |"
+        for i in range(max_kamar):
+            header += " K-{} |".format(i+1)
+        print(header)
+        print("|" + "-" * 28 + "-|" + "-----+" * max_kamar)
+        
+        for tipe in self.tipe_kamar_list:
+            row = "| {}".format(tipe).ljust(30) + " |"
+            kamar_list = self._nomor_kamar[tipe]
+            
+            for i in range(max_kamar):
+                if i < len(kamar_list):
+                    nomor = kamar_list[i]
+                    status = "T" if nomor in kamar_terisi else "K"
+                    cell = " {}/{} |".format(nomor, status)
+                else:
+                    cell = "     |"  
+                row += cell
+            
+            print(row)
+        
+        print("|" + "-" * 28 + "-|" + "-----+" * max_kamar)
+        print("Keterangan: K = Kosong, T = Terisi")
+        print("================================================================")
+
+
+class Tamu:
+    def __init__(self):
+        self.nama = input("Masukkan nama pemesan: ")
+        self._nik = input("Masukkan NIK: ")
+        self._telepon = input("Masukkan No. Telepon: ")
+
+    def get_nik(self):
+        return self._nik
+
+    def get_telepon(self):
+        return self._telepon
+
+
+class Pemesanan(Kamar, Tamu):
+    def __init__(self):
+        Kamar.__init__(self)
+        Tamu.__init__(self)
+        
+        self.jumlah_pesanan = int(input("Masukkan jumlah kamar yang ingin dipesan: "))
+        
+        self.tipe_kamar_dipilih = []
+        print("\nPilih tipe kamar untuk tiap kamar yang dipesan:")
+        for i in range(self.jumlah_pesanan):
+            print("\nPilihan tipe kamar ke-{}:".format(i + 1))
+            self.tampil_info_kamar()
+            pilihan = input("Pilih tipe kamar (1-{}): ".format(len(self.tipe_kamar_list)))
+            while not pilihan.isdigit() or int(pilihan) not in range(1, len(self.tipe_kamar_list) + 1):
+                print("Input tidak valid, silakan masukkan nomor yang benar.")
+                pilihan = input("Pilih tipe kamar (1-{}): ".format(len(self.tipe_kamar_list)))
+            tipe_terpilih = self.tipe_kamar_list[int(pilihan) - 1]
+            self.tipe_kamar_dipilih.append(tipe_terpilih)
+        
+        tipe_unik = sorted(set(self.tipe_kamar_dipilih))
+        kamar_tersedia_per_tipe = self.tampil_status_kamar(tipe_unik)
+        
+        self.kamar_dipesan = []
+        for i, tipe in enumerate(self.tipe_kamar_dipilih, start=1):
+            kamar_tersedia = kamar_tersedia_per_tipe[tipe]
+            if not kamar_tersedia:
+                print("Maaf, tidak ada kamar kosong untuk tipe {}. Silakan batalkan dan coba pesan ulang.".format(tipe))
+                exit()
+            
+            nomor_kamar = input("Pilih nomor kamar {} (tipe {}): ".format(i, tipe))
+            while nomor_kamar not in kamar_tersedia:
+                print("Nomor kamar tidak valid atau sudah terisi. Silakan pilih ulang.")
+                nomor_kamar = input("Pilih nomor kamar {} (tipe {}): ".format(i, tipe))
+            
+            kamar_tersedia.remove(nomor_kamar)
+            
+            harga = self._harga_kamar[tipe]
+            self.kamar_dipesan.append({'tipe': tipe, 'nomor': nomor_kamar, 'harga': harga})
+        
+        tanggal = input("Masukkan tanggal check-in (TANGGAL-BULAN-TAHUN): ")
+        jam = input("Masukkan jam check-in (JAM:MENIT): ")
+        datetime_str = tanggal + " " + jam
+        self.waktu_checkin = datetime.datetime.strptime(datetime_str, "%d-%m-%Y %H:%M")
+        
+        self.lama_menginap = int(input("Masukkan lama menginap (malam): "))
+        
+        self.total_harga = sum(item['harga'] for item in self.kamar_dipesan) * self.lama_menginap
+        
+        print("\nTotal harga: Rp {:,}".format(self.total_harga))
+        print("Pilihan pembayaran:")
+        print("1. Bayar DP 50% sekarang")
+        print("2. Bayar lunas sekarang")
+        
+        pilihan_bayar = input("Pilih opsi pembayaran (1/2): ")
+        while pilihan_bayar not in ['1', '2']:
+            print("Pilihan tidak valid.")
+            pilihan_bayar = input("Pilih opsi pembayaran (1/2): ")
+        
+        if pilihan_bayar == '1':
+            self.status_pembayaran = "DP"
+            self.dp_dibayar = self.total_harga // 2
+            self.sisa_pembayaran = self.total_harga - self.dp_dibayar
+            print("DP 50%: Rp {:,}".format(self.dp_dibayar))
+            print("Sisa pembayaran: Rp {:,}".format(self.sisa_pembayaran))
+            self.metode_pembayaran_dp = input("Metode pembayaran DP (Cash/Debit): ")
+        else:
+            self.status_pembayaran = "LUNAS"
+            self.dp_dibayar = self.total_harga
+            self.sisa_pembayaran = 0
+            self.metode_pembayaran_dp = input("Metode pembayaran (Cash/Debit): ")
+        
+        self.checkout = self.waktu_checkin + datetime.timedelta(days=self.lama_menginap)
+        self.crash = 0
+        
+        self.id_transaksi = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    
+    def get_info_kamar(self, tipe_kamar):
+        """Override method dari parent class (Kamar)"""
+        info_dasar = super().get_info_kamar(tipe_kamar)  # Panggil method parent
+        kamar_terisi = self.kamar_terisi()
+        kamar_tersedia = [k for k in self._nomor_kamar[tipe_kamar] if k not in kamar_terisi]
+        
+        info_dasar.update({
+            "tersedia": kamar_tersedia,
+            "total_kamar": len(self._nomor_kamar[tipe_kamar]),
+            "terisi": len(self._nomor_kamar[tipe_kamar]) - len(kamar_tersedia)
+        })
+        return info_dasar
+    
+    def simpan_data(self):
+        """Menyimpan data pemesanan ke file txt dengan status checkout dan pembayaran"""
+        with open("data_checkin.txt", "a") as file:
+            kamar_info = ""
+            for kamar in self.kamar_dipesan:
+                kamar_info += "{} | {} | {} | ".format(kamar['tipe'], kamar['nomor'], kamar['harga'])
+            
+            if kamar_info.endswith(' | '):
+                kamar_info = kamar_info[:-3]
+                
+            file.write("{} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | {} | BELUM | {}\n".format(
+                self.id_transaksi, self.nama, self.get_nik(), self.get_telepon(),
+                self.jumlah_pesanan, self.waktu_checkin.strftime('%d-%m-%Y %H:%M'),
+                self.checkout.strftime('%d-%m-%Y %H:%M'), self.lama_menginap,
+                self.metode_pembayaran_dp, self.total_harga, self.crash,
+                self.status_pembayaran, self.sisa_pembayaran, kamar_info))
+    
+    def tampil_struk(self):
+        print("\n===========================================================")
+        print("                      Penginapan Choco                       ")
+        print("             Jl. Coklat Manis No. 5, Surabaya                ")
+        print("                   Telp: (031) 888-9999                      ")
+        print("===========================================================")
+        
+        print("\nNama Tamu          : " , self.nama)
+        print("No. Telepon        : " , self.get_telepon())
+        print("NIK                : " , self.get_nik())
+        
+        print("\nDetail kamar yang dipesan:")
+        for idx, kamar in enumerate(self.kamar_dipesan, 1):
+            print(" {}. Tipe: {} - Nomor: {} - Harga/malam: Rp {:,}".format(
+                idx, kamar['tipe'], kamar['nomor'], kamar['harga']))
+        
+        print("\nCheck-in           : " , self.waktu_checkin.strftime('%d %B %Y (%H.%M)'))
+        print("Check-out          : " , self.checkout.strftime('%d %B %Y (12.00)'))
+        print("Lama Menginap      : " , str(self.lama_menginap) + " malam")
+        
+        print("\n--- INFORMASI PEMBAYARAN ---")
+        print("Total Harga        : Rp {:,}".format(self.total_harga))
+        if hasattr(self, 'status_pembayaran'):
+            if self.status_pembayaran == "DP":
+                print("Status Pembayaran  : DP 50%")
+                print("DP Dibayar         : Rp {:,}".format(self.dp_dibayar))
+                print("Metode Pembayaran  : " + self.metode_pembayaran_dp)
+                print("Sisa Pembayaran    : Rp {:,}".format(self.sisa_pembayaran))
+                print("(Sisa akan dibayar saat checkout)")
+            else:
+                print("Status Pembayaran  : LUNAS")
+                print("Metode Pembayaran  : " + self.metode_pembayaran_dp)
+        
+        print("Biaya Tambahan     : Rp {:,}".format(self.crash))
+        
+        if hasattr(self, 'dp_dibayar'):
+            total_dibayar = self.dp_dibayar + self.crash
+        else:
+            total_dibayar = self.total_harga + self.crash
+            
+        print("Total yang Dibayar : Rp {:,}".format(total_dibayar))
+        print("===========================================================")
+    
+    def biaya_tambahan(self):
+        nik = input("Masukkan NIK untuk proses checkout: ")
+        ditemukan = False
+        if os.path.exists("data_checkin.txt"):
+            with open("data_checkin.txt", "r") as file:
+                lines = file.readlines()
+            
+            for line in lines:
+                data = line.strip().split(" | ")
+                
+                if len(data) >= 14 and data[2] == nik and data[13] == "BELUM":
+                    ditemukan = True
+                    
+                    self.id_transaksi = data[0]
+                    self.nama = data[1]
+                    self._nik = data[2]
+                    self._telepon = data[3]
+                    self.jumlah_pesanan = int(data[4])
+                    self.waktu_checkin = datetime.datetime.strptime(data[5], "%d-%m-%Y %H:%M")
+                    self.checkout = datetime.datetime.strptime(data[6], "%d-%m-%Y %H:%M")
+                    self.lama_menginap = int(data[7])
+                    self.metode_pembayaran_dp = data[8]
+                    self.total_harga_awal = int(data[9])
+                    self.crash = int(data[10])
+                    self.status_pembayaran = data[11]
+                    self.sisa_pembayaran = int(data[12])
+                    
+                    self.kamar_dipesan = []
+                    kamar_data = data[14:]
+                    
+                    for i in range(0, len(kamar_data), 3):
+                        if i+2 < len(kamar_data):
+                            kamar = {
+                                'tipe': kamar_data[i],
+                                'nomor': kamar_data[i+1],
+                                'harga': int(kamar_data[i+2])
+                            }
+                            self.kamar_dipesan.append(kamar)
+                    
+                    print("\nData ditemukan untuk: {}".format(self.nama))
+                    print("Check-out seharusnya: {}".format(self.checkout.strftime('%d-%m-%Y 12:00')))
+                    print("Total harga kamar: Rp {:,}".format(self.total_harga_awal))
+                    print("Status pembayaran: {}".format(self.status_pembayaran))
+                    
+                    if self.status_pembayaran == "DP":
+                        print("Sisa pembayaran: Rp {:,}".format(self.sisa_pembayaran))
+                    
+                    jawab = input("\nApakah tamu checkout melebihi jam 12.00? (yes/no): ").lower()
+                    if jawab == "yes":
+                        jam_terlambat = int(input("Berapa jam keterlambatan? "))
+                        self.crash = jam_terlambat * 50000
+                        print("Biaya keterlambatan: {} jam x Rp 50,000 = Rp {:,}".format(jam_terlambat, self.crash))
+                    else:
+                        self.crash = 0
+                        print("Tidak ada biaya keterlambatan.")
+                    
+                    if self.status_pembayaran == "DP":
+                        print("\nTotal yang harus dibayar saat checkout:")
+                        print("Sisa pembayaran kamar: Rp {:,}".format(self.sisa_pembayaran))
+                        print("Biaya keterlambatan: Rp {:,}".format(self.crash))
+                        total_checkout = self.sisa_pembayaran + self.crash
+                        print("Total checkout: Rp {:,}".format(total_checkout))
+                        
+                        if total_checkout > 0:
+                            metode_pelunasan = input("Metode pembayaran pelunasan (Cash/Debit): ")
+                            self.metode_pembayaran_pelunasan = metode_pelunasan
+                            print("Pembayaran pelunasan berhasil!")
+                        
+                        self.status_pembayaran = "LUNAS"
+                        self.sisa_pembayaran = 0
+                    
+                    self.total_harga = self.total_harga_awal + self.crash
+                    
+                    self.update_status_checkout(nik)
+                    
+                    self.tampil_struk_checkout()
+                    break
+            
+            if not ditemukan:
+                print("Data dengan NIK tersebut tidak ditemukan atau sudah checkout.")
+    
+    def tampil_struk_checkout(self):
+        print("\n===========================================================")
+        print("                      Penginapan Choco                       ")
+        print("             Jl. Coklat Manis No. 5, Surabaya                ")
+        print("                   Telp: (031) 888-9999                      ")
+        print("                        STRUK CHECKOUT                        ")
+        print("===========================================================")
+        
+        print("\nNama Tamu          : " , self.nama)
+        print("No. Telepon        : " , self.get_telepon())
+        print("NIK                : " , self.get_nik())
+        
+        print("\nDetail kamar yang dipesan:")
+        for idx, kamar in enumerate(self.kamar_dipesan, 1):
+            print(" {}. Tipe: {} - Nomor: {} - Harga/malam: Rp {:,}".format(
+                idx, kamar['tipe'], kamar['nomor'], kamar['harga']))
+        
+        print("\nCheck-in           : " , self.waktu_checkin.strftime('%d %B %Y (%H.%M)'))
+        print("Check-out          : " , self.checkout.strftime('%d %B %Y (12.00)'))
+        print("Lama Menginap      : " , str(self.lama_menginap) + " malam")
+        
+        print("\n--- RINCIAN PEMBAYARAN ---")
+        subtotal = sum(item['harga'] for item in self.kamar_dipesan) * self.lama_menginap
+        print("Subtotal Kamar     : Rp {:,}".format(subtotal))
+        
+        if hasattr(self, 'metode_pembayaran_pelunasan'):
+            dp_amount = subtotal // 2
+            print("DP saat Check-in   : Rp {:,} ({})".format(dp_amount, self.metode_pembayaran_dp))
+            print("Pelunasan Checkout : Rp {:,} ({})".format(subtotal - dp_amount, self.metode_pembayaran_pelunasan))
+        else:
+            print("Pembayaran         : Rp {:,} ({})".format(subtotal, self.metode_pembayaran_dp))
+        
+        print("Biaya Keterlambatan: Rp {:,}".format(self.crash))
+        
+        total_final = subtotal + self.crash
+        print("Total Akhir        : Rp {:,}".format(total_final))
+        print("Status Pembayaran  : LUNAS")
+        print("===========================================================")
+        print("Terima kasih telah menginap di Penginapan Choco!")
+        print("===========================================================")
+    
+    def update_status_checkout(self, nik):
+        """Update status checkout menjadi SUDAH dan update pembayaran"""
+        if os.path.exists("data_checkin.txt"):
+            with open("data_checkin.txt", "r") as file:
+                lines = file.readlines()
+            
+            with open("data_checkin.txt", "w") as file_baru:
+                for line in lines:
+                    data = line.strip().split(" | ")
+                    if len(data) >= 14 and data[2] == nik and data[13] == "BELUM":
+                        data[10] = str(self.crash)  
+                        data[11] = "LUNAS"  
+                        data[12] = "0"  
+                        data[13] = "SUDAH" 
+                        
+                        file_baru.write(" | ".join(data) + "\n")
+                        print("Status checkout berhasil diupdate.")
+                    else:
+                        file_baru.write(line)
+
+
+def main():
+    while True:
+        print("\n=== Penginapan Choco ===")
+        print("1. Check-in")
+        print("2. Checkout")
+        print("3. Lihat Status Kamar")
+        print("4. Keluar")
+
+        pilihan = input("Pilih menu (1/2/3/4): ")
+        if pilihan == "1":
+            pemesanan = Pemesanan()
+            pemesanan.simpan_data()
+            pemesanan.tampil_struk()
+        elif pilihan == "2":
+            pemesanan = Pemesanan.__new__(Pemesanan)
+            pemesanan.biaya_tambahan() 
+        elif pilihan == "3":
+            kamar = Kamar()
+            # Demonstrasi polymorphism
+            print("\n=== Demonstrasi Polymorphism ===")
+            print("Info kamar dari class Kamar:")
+            info_kamar = kamar.get_info_kamar("Standard Room")
+            print(info_kamar)
+            
+            print("\nInfo kamar dari class Pemesanan (override):")
+            pemesanan = Pemesanan.__new__(Pemesanan)
+            info_kamar_pemesanan = pemesanan.get_info_kamar("Standard Room")
+            print(info_kamar_pemesanan)
+            
+            kamar.tampil_tabel_status_kamar()
+        elif pilihan == "4":
+            print("Terima kasih telah menggunakan layanan kami.")
+            break
+        else:
+            print("Pilihan tidak valid, coba lagi.")
+
+if __name__ == "__main__":
+   main()
