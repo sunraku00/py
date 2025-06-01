@@ -213,7 +213,7 @@ class Pemesanan(Kamar, Tamu):
             print("="*88)
             
             # Header tabel
-            print(f"{'Tipe Kamar':<35} | {'Kamar 1':<9} | {'Kamar 2':<9} | {'Kamar 3':<9} | {'Kamar 4':<9} | {'Kamar 5':<9}")
+            print(f"{'Tipe Kamar':<35} | {'Kamar 1':<8} | {'Kamar 2':<8} | {'Kamar 3':<8} | {'Kamar 4':<8} | {'Kamar 5':<8} |")
             print("-"*35 + "-+-" + "---------+-"*4 + "---------+")
             
             # Data untuk setiap tipe kamar
